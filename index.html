@@ -359,7 +359,7 @@
 
   function toast(s){ statusEl.textContent=s; setTimeout(()=>statusEl.textContent='就绪',1800) }
   function setBusy(b,txt){ if(b){ spinEl.classList.add('show'); oneKeyBtn.setAttribute('disabled','disabled') } else { spinEl.classList.remove('show'); oneKeyBtn.removeAttribute('disabled') } statusEl.textContent = txt || (b?'处理中…':'就绪') }
-  function log(s){ logEl.textContent+=(s+"\\n"); logEl.scrollTop=logEl.scrollHeight }
+  function log(s){ logEl.textContent+=(s+"\n"); logEl.scrollTop=logEl.scrollHeight }
 
   const refImgs=[]; // {dataURL,w,h}
   function setupDrop(zone,input,onFiles){
