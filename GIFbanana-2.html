@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>香蕉GIF</title>
+<style>
+  :root{ --banana:#FFD93D; --cream:#F6F1E9; --orange:#FF9A00; --cocoa:#4F200D; --text:var(--cocoa); --muted: rgba(79,32,13,.72); --line: rgba(79,32,13,.18); --panel:#fff; }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{ margin:0;color:var(--text);
+    background:
+      radial-gradient(40% 30% at 20% 10%, rgba(255,217,61,.25), transparent 60%),
+      radial-gradient(35% 25% at 85% 0%, rgba(255,154,0,.15), transparent 60%),
+      linear-gradient(180deg,#FFF9E8 0%, var(--cream) 100%);
+    font:14px/1.6 system-ui,-apple-system,Segoe UI,Roboto }
+  header{ padding:20px 16px 16px;border-bottom:1px solid var(--line); background:linear-gradient(180deg,#FFF6D3,#FFEAA0); }
+  h1{ margin:0 0 12px 0;font-size:24px;color:#2e180c }
+  .author-bar{ display:flex;flex-wrap:wrap;gap:10px;align-items:center; background:linear-gradient(90deg,rgba(255,217,61,.35),rgba(255,154,0,.25)); border:1px solid rgba(255,154,0,.45); padding:10px 12px;border-radius:16px }
+  .badge{padding:6px 10px;border-radius:999px;border:1px solid rgba(79,32,13,.18);background:#fff7d8;font-weight:700;color:#2e180c}
+  main{max-width:1100px;margin:20px auto;padding:0 12px 60px}
+  .grid{display:grid;grid-template-columns:1fr;gap:16px}
+  .card{ background:var(--panel); border:1px solid var(--line); padding:16px;border-radius:16px; box-shadow:0 6px 30px rgba(79,32,13,.08)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px} @media (max-width:900px){ .row{grid-template-columns:1fr} }
+  label{display:block;font-size:12px;color:var(--muted);margin-bottom:8px}
+  input[type=text],input[type=number]{ width:100%;height:44px;padding:0 12px;border-radius:12px; background:#fff;border:1px solid var(--line);color:var(--text);outline:none;line-height:44px }
+  textarea{ width:100%;min-height:120px;resize:vertical;padding:12px;border-radius:12px; background:#fff;border:1px solid var(--line);color:var(--text) }
+  .btn{ display:inline-flex;align-items:center;gap:8px; border:1px solid var(--orange); background:linear-gradient(180deg,#FFE072,#FFC02E); color:#41210f;padding:0 16px;height:44px;border-radius:12px;cursor:pointer;transition:.15s;white-space:nowrap;font-weight:800 }
+  .btn:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(255,154,0,.25)} .btn[disabled]{opacity:.6;cursor:not-allowed}
+  .btn.primary{background:linear-gradient(180deg,#FFC23D,#FF9A00)}
+  .pill{ display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(79,32,13,.2); background:#fff; padding:6px 12px;border-radius:999px;font-size:12px;color:var(--muted);min-height:32px }
+  .spin{width:18px;height:18px;border:2px solid rgba(255,217,61,.45);border-top-color:var(--orange);border-radius:50%;animation:rot 1s linear infinite;display:none}
+  .spin.show{display:inline-block} @keyframes rot{to{transform:rotate(360deg)}}
+  .krow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px} .muted{color:var(--muted)} .small{font-size:12px}
+  .cols{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:start} @media (max-width:900px){ .cols{grid-template-columns:1fr} }
+  .thumbs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .thumbs canvas, .thumbs img{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+  .log-list{background:#FFF7E1;border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:520px;padding:8px;white-space:pre-wrap}
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .shot{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff} .shot img{display:block;width:100%;height:auto}
+  .bar{display:flex;justify-content:space-between;align-items:center;padding:8px;border-top:1px solid var(--line)}
+  .drop{border:2px dashed rgba(255,154,0,.6); background:#FFF8E8; border-radius:14px;padding:16px;text-align:center;color:var(--muted); margin-top:8px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px} @media (max-width:1100px){ .row3{grid-template-columns:1fr} }
+  .refs{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-top:8px} .refs img{width:100%;height:80px;object-fit:cover;border-radius:10px;border:1px solid var(--line);background:#fff}
+  .template-mini{width:100%;max-width:200px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-top:6px}
+</style>
+
+<!-- Inline GIF Encoder (robust LZW with CLEAR and global palette) -->
+<script>
+(function(){
+  if (window.gifenc) return;
+
+  function ByteArray(){ this.buf=[] }
+  ByteArray.prototype.push = function(){ for (let i=0;i<arguments.length;i++) this.buf.push(arguments[i]&255) };
+  ByteArray.prototype.bytes = function(){ return new Uint8Array(this.buf) };
+  function w16(ba,n){ ba.push(n&255,(n>>8)&255) }
+
+  // Median-cut quantizer (returns power-of-two palette up to 256 colors)
+  function quantize(rgba, maxColors, sampleStep){
+    maxColors = Math.min(256, Math.max(2, maxColors|0||256));
+    const step = Math.max(1, sampleStep|0||1);
+    const px=[];
+    for (let i=0;i<rgba.length;i+=4*step){
+      const a=rgba[i+3];
+      if (a===0) continue;
+      px.push([rgba[i],rgba[i+1],rgba[i+2]]);
+    }
+    if (px.length===0) return new Uint8Array([255,255,255, 0,0,0]); // avoid empty
+    function box(p){
+      let r0=255,r1=0,g0=255,g1=0,b0=255,b1=0;
+      for(const q of p){
+        if(q[0]<r0) r0=q[0]; if(q[0]>r1) r1=q[0];
+        if(q[1]<g0) g0=q[1]; if(q[1]>g1) g1=q[1];
+        if(q[2]<b0) b0=q[2]; if(q[2]>b1) b1=q[2];
+      }
+      return {p,r0,r1,g0,g1,b0,b1};
+    }
+    function axis(b){
+      const dr=b.r1-b.r0,dg=b.g1-b.g0,db=b.b1-b.b0;
+      return (dr>=dg&&dr>=db)?0:((dg>=dr&&dg>=db)?1:2);
+    }
+    let boxes=[box(px)];
+    while (boxes.length<maxColors){
+      boxes.sort((a,b)=> (Math.max(b.r1-b.r0,b.g1-b.g0,b.b1-b.b0) - Math.max(a.r1-a.r0,a.g1-a.g0,a.b1-a.b0)));
+      const t = boxes.shift();
+      if (!t || t.p.length<=1){ if(t) boxes.push(t); break; }
+      const ax = axis(t);
+      t.p.sort((p,q)=>p[ax]-q[ax]);
+      const m=(t.p.length/2)|0;
+      boxes.push(box(t.p.slice(0,m)), box(t.p.slice(m)));
+    }
+    const pal=[];
+    for(const b of boxes){
+      const n=b.p.length||1; let r=0,g=0,bl=0;
+      for(const q of b.p){ r+=q[0]; g+=q[1]; bl+=q[2]; }
+      pal.push((r/n)|0,(g/n)|0,(bl/n)|0);
+    }
+    let sz=1; while(sz<pal.length && sz<256) sz<<=1;
+    while(pal.length<sz*3) pal.push(255,255,255); // pad with white
+    return new Uint8Array(pal);
+  }
+
+  function applyPalette(rgba, palette){
+    const plen = palette.length/3;
+    const pal = new Array(plen);
+    for(let i=0;i<plen;i++) pal[i]=[palette[i*3],palette[i*3+1],palette[i*3+2]];
+    const out = new Uint8Array(rgba.length/4);
+    for(let i=0,j=0;i<rgba.length;i+=4,j++){
+      const a=rgba[i+3]; if(a===0){ out[j]=0; continue; }
+      const r=rgba[i],g=rgba[i+1],b=rgba[i+2];
+      let best=0, bd=1e12;
+      for(let k=0;k<plen;k++){
+        const dr=pal[k][0]-r, dg=pal[k][1]-g, db=pal[k][2]-b;
+        const d=dr*dr+dg*dg+db*db;
+        if(d<bd){ bd=d; best=k; }
+      }
+      out[j]=best;
+    }
+    return out;
+  }
+
+  // LZW encoder using string-keys; robust CLEAR reset.
+  // LZW encoder - corrected version
+  function lzwEncode(indices, minCodeBits) {
+    const CLEAR = 1 << minCodeBits;
+    const END = CLEAR + 1;
+    let nextCode = END + 1;
+
+    let codeSize = minCodeBits + 1;
+    let dict = new Map();
+    for (let i = 0; i < CLEAR; i++) dict.set(String.fromCharCode(i), i);
+
+    const data = [];
+    let curAccum = 0;
+    let curBits = 0;
+
+    function write(code) {
+      curAccum |= code << curBits;
+      curBits += codeSize;
+      while (curBits >= 8) {
+        data.push(curAccum & 0xFF);
+        curAccum >>= 8;
+        curBits -= 8;
+      }
+    }
+
+    write(CLEAR);
+
+    let s = String.fromCharCode(indices[0]);
+
+    for (let i = 1; i < indices.length; i++) {
+      const c = String.fromCharCode(indices[i]);
+      const sc = s + c;
+      if (dict.has(sc)) {
+        s = sc;
+      } else {
+        write(dict.get(s));
+
+        if (nextCode < 4096) {
+          if (nextCode === (1 << codeSize) && codeSize < 12) {
+             codeSize++;
+          }
+          dict.set(sc, nextCode++);
+        }
+        
+        if (nextCode > 4095) { // Dictionary is full, time to reset
+           write(CLEAR);
+           dict.clear();
+           for (let j = 0; j < CLEAR; j++) dict.set(String.fromCharCode(j), j);
+           codeSize = minCodeBits + 1;
+           nextCode = END + 1;
+        }
+        s = c;
+      }
+    }
+
+    write(dict.get(s));
+    write(END);
+
+    if (curBits > 0) {
+      data.push(curAccum & 0xFF);
+    }
+    
+    const blocks = [];
+    for (let i = 0; i < data.length; i += 255) {
+      blocks.push(data.slice(i, i + 255));
+    }
+    return blocks;
+  }
+
+  function GIFEncoder(){
+    const ba=new ByteArray();
+    let W=0,H=0,gct=null,gpow=0, finished=false;
+
+    function header(){ ba.push(0x47,0x49,0x46,0x38,0x39,0x61) }
+    function lsd(){
+      w16(ba,W); w16(ba,H);
+      const gctFlag = gct ? 0x80 : 0x00;
+      const colorRes = 7<<4; // 8-bit
+      const sizeCode = Math.max(1, gpow-1) & 7;
+      ba.push(gctFlag | colorRes | sizeCode);
+      ba.push(0x00); // bg idx
+      ba.push(0x00); // pixel aspect
+      if(gct){
+        for(let i=0;i<(1<<gpow);i++){
+          const r=gct[i*3]||255, g=gct[i*3+1]||255, b=gct[i*3+2]||255;
+          ba.push(r,g,b);
+        }
+      }
+      // Netscape loop forever
+      ba.push(0x21,0xFF,0x0B, 0x4E,0x45,0x54,0x53,0x43,0x41,0x50,0x45,0x32,0x2E,0x30, 0x03,0x01,0x00,0x00,0x00);
+    }
+
+    function start(width, height, palette){
+      W=width; H=height;
+      let colors = Math.max(2, Math.min(256, (palette && palette.length/3) || 256));
+      let pow = 1; while((1<<pow)<colors) pow++;
+      gpow = pow;
+      const want = 1<<pow;
+      gct = new Uint8Array(want*3);
+      if (palette) gct.set(palette.slice(0, want*3));
+      header(); lsd();
+    }
+
+    function addFrame(indexed, delayMs){
+      const delay = Math.max(0, Math.round((delayMs||100)/10));
+      // GCE: disposal 0 (no disposal), no transparency
+      ba.push(0x21,0xF9,0x04,0x00, delay&255, (delay>>8)&255, 0x00, 0x00);
+      // Image Descriptor
+      ba.push(0x2C); w16(ba,0); w16(ba,0); w16(ba,W); w16(ba,H);
+      ba.push(0x00); // no LCT
+      const minBits = Math.max(2, gpow); // e.g. 8 for 256-color
+      ba.push(minBits);
+      const blocks = lzwEncode(indexed, minBits);
+      for(const blk of blocks){ ba.push(blk.length, ...blk); }
+      ba.push(0x00);
+    }
+
+    function finish(){ if(!finished){ ba.push(0x3B); finished=true; } }
+    function bytes(){ finish(); return new Uint8Array(ba.bytes()); }
+
+    return { start, addFrame, finish, bytes };
+  }
+
+  window.gifenc = { GIFEncoder, quantize, applyPalette };
+})();
+</script>
+</head>
+<body>
+<header>
+  <h1>香蕉GIF</h1>
+  <div class="author-bar">
+    <span class="badge">单文件 · 离线可用</span>
+    <span class="muted small">流程：以「模板九宫格」为参考生成 → 按模板灰区裁 9 张 → 合成 GIF</span>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="card">
+    
+    <!-- 1. 参考图 -->
+    <div style="margin-bottom: 16px;">
+      <label>参考图（可选，作为 Prompt 的一部分，支持多张）</label>
+      <div class="drop" id="dropRef">
+        拖拽参考图到这里，或 <label style="text-decoration:underline;cursor:pointer"><input id="fileRef" type="file" accept="image/*" multiple hidden>选择文件</label>
+      </div>
+      <div class="refs" id="refList"></div>
+      <div class="krow" style="margin-top:6px">
+        <button class="btn" id="clearRefs">清空参考图</button>
+      </div>
+      <div class="muted small">模板预览：</div>
+      <img class="template-mini" id="tplPreview" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAIAAADwf7zUAAAU60lEQVR4nO3ZwY0EIQwAwZvTBEP+0ZANm8MIwaOrAjB8/Gj5WWv9AQAADf+3PwAAAJwjAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAELeLVPmnFvmAN+MMc4/avHhLosPQVsW3wUAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIedZat/8AAAAc4gIAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAg5N0yZc65ZQ7wzRjj/KMWH+6y+BC0ZfFdAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgJBnrXX7DwAAwCEuAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAELeLVPmnFvmAN+MMc4/avHhLosPQVsW3wUAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIedZat/8AAAAc4gIAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACDkBxz7Lvfjce/NAAAAAElFTkSuQmCC" alt="模板九宫格"/>
+    </div>
+
+    <!-- 2. 提示词 -->
+    <div style="margin-bottom: 16px;">
+      <label>提示词</label>
+      <textarea id="prompt" placeholder="例如：卡通香蕉在三格内从左到右跳舞，风格统一，明亮背景"></textarea>
+    </div>
+
+    <!-- 3. Key -->
+    <div style="margin-bottom: 16px;">
+      <label>你的 Key（本地保存，请联系作者购买，5分钱1张图）</label>
+      <div class="krow">
+        <input id="userKey" type="text" placeholder="sk-or-...">
+        <button class="btn" id="saveKey">保存到本地</button>
+        <button class="btn" id="clearKey">清除本地</button>
+      </div>
+      <div class="muted small">说明：仅保存在浏览器 localStorage；不上传到任何地方。</div>
+    </div>
+    
+    <!-- Hidden: GIF 参数 -->
+    <div style="display: none;">
+      <label>GIF 参数</label>
+      <div class="krow">
+        <label class="small">每帧延迟(ms)<br><input id="delay" type="number" min="10" step="10" value="120"></label>
+        <label class="small">导出宽度(px，留空=原始)<br><input id="outW" type="number" min="32" step="2" placeholder=""></label>
+        <label class="small">循环模式<br>
+          <select id="loopMode" style="height:44px;border:1px solid var(--line);border-radius:12px;padding:0 10px">
+            <option value="normal">普通循环(1→9→1→…)</option>
+            <option value="pingpong">往返循环(1→9→1→…)</option>
+          </select>
+        </label>
+      </div>
+    </div>
+    
+    <!-- Hidden: 测试图 -->
+    <div style="display: none;">
+      <label>测试图（可手动上传结果九宫格，跳过API）</label>
+      <div class="drop" id="dropSprite">
+        拖拽图片到这里，或 <label style="text-decoration:underline;cursor:pointer"><input id="fileSprite" type="file" accept="image/*" hidden>选择文件</label>
+      </div>
+    </div>
+
+    <div class="krow" style="margin-top:14px">
+      <button class="btn primary" id="oneKey">🚀 一键生成 GIF</button>
+      <span class="pill"><span id="spin" class="spin"></span> <span id="status">就绪</span></span>
+    </div>
+  </section>
+
+  <section class="cols">
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:8px">生成与裁切</div>
+      <div class="gallery" id="gallery"></div>
+      <div style="margin-top:10px"><div style="font-weight:800;margin-bottom:6px">九张序列帧（按模板灰区）</div><div class="thumbs" id="thumbs"></div></div>
+    </div>
+
+    <aside class="card">
+      <div style="font-weight:800;margin-bottom:8px">日志 / 结果</div>
+      <div class="log-list" id="log"></div>
+      <div style="margin-top:10px">
+        <div class="krow">
+          <a id="dlGif" class="btn" download="bananimate.gif" href="#" style="display:none">⬇️ 下载 GIF</a>
+          <a id="dlFrames" class="btn" download="frames.json" href="#" style="display:none">⬇️ 下载序列帧JSON</a>
+        </div>
+        <div style="margin-top:10px">
+          <img id="gifPreview" alt="GIF 预览" style="max-width:100%;display:none;border:1px solid var(--line);border-radius:10px;background:#fff"/>
+        </div>
+      </div>
+    </aside>
+  </section>
+</main>
+
+<script>
+(function(){
+  const MODEL="gemini-2.5-flash-image";
+  const ENDPOINT="https://oaiapi.asia/v1/chat/completions";
+  const TEMPLATE_DATA="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAIAAADwf7zUAAAU60lEQVR4nO3ZwY0EIQwAwZvTBEP+0ZANm8MIwaOrAjB8/Gj5WWv9AQAADf+3PwAAAJwjAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAELeLVPmnFvmAN+MMc4/avHhLosPQVsW3wUAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIedZat/8AAAAc4gIAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAg5N0yZc65ZQ7wzRjj/KMWH+6y+BC0ZfFdAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgJBnrXX7DwAAwCEuAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAELeLVPmnFvmAN+MMc4/avHhLosPQVsW3wUAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACBEAAAAQIgAAACAEAEAAAAhAgAAAEIEAAAAhAgAAAAIedZat/8AAAAc4gIAAAAhAgAAAEIEAAAAhAgAAAAIEQAAABAiAAAAIEQAAABAiAAAAIAQAQAAACECAAAAQgQAAACECAAAAAgRAAAAECIAAAAgRAAAAECIAAAAgBABAAAAIQIAAABCBAAAAIQIAAAACBEAAAAQIgAAACDkBxz7Lvfjce/NAAAAAElFTkSuQmCC";
+
+  const $=id=>document.getElementById(id);
+  const promptEl=$("prompt"), userKeyEl=$("userKey"), saveKeyBtn=$("saveKey"), clearKeyBtn=$("clearKey");
+  const fileSpriteEl=$("fileSprite"), dropSprite=$("dropSprite");
+  const fileRefEl=$("fileRef"), dropRef=$("dropRef"), refListEl=$("refList"), clearRefsBtn=$("clearRefs");
+  const thumbsEl=$("thumbs"), galleryEl=$("gallery"), logEl=$("log"), spinEl=$("spin"), statusEl=$("status"), oneKeyBtn=$("oneKey");
+  const delayEl=$("delay"), outWEl=$("outW"), loopModeEl=$("loopMode"), dlGifEl=$("dlGif"), gifPrevEl=$("gifPreview"), dlFramesEl=$("dlFrames");
+
+  userKeyEl.value=localStorage.getItem('nb:key')||'';
+  saveKeyBtn.onclick=()=>{ localStorage.setItem('nb:key',(userKeyEl.value||'').trim()); toast('已保存 Key') };
+  clearKeyBtn.onclick=()=>{ localStorage.removeItem('nb:key'); userKeyEl.value=''; toast('已清除 Key') };
+
+  function toast(s){ statusEl.textContent=s; setTimeout(()=>statusEl.textContent='就绪',1800) }
+  function setBusy(b,txt){ if(b){ spinEl.classList.add('show'); oneKeyBtn.setAttribute('disabled','disabled') } else { spinEl.classList.remove('show'); oneKeyBtn.removeAttribute('disabled') } statusEl.textContent = txt || (b?'处理中…':'就绪') }
+  function log(s){ logEl.textContent+=(s+"\\n"); logEl.scrollTop=logEl.scrollHeight }
+
+  const refImgs=[]; // {dataURL,w,h}
+  function setupDrop(zone,input,onFiles){
+    ['dragenter','dragover'].forEach(e=>zone.addEventListener(e,ev=>{ev.preventDefault(); zone.style.borderColor='var(--orange)'}));
+    ['dragleave','drop'].forEach(e=>zone.addEventListener(e,ev=>{ev.preventDefault(); zone.style.borderColor='rgba(255,154,0,.6)'}));
+    zone.addEventListener('drop', ev=>{ const fs=Array.from(ev.dataTransfer.files||[]); if(fs.length) onFiles(fs) });
+    input.addEventListener('change', ev=>{ const fs=Array.from(ev.target.files||[]); if(fs.length) onFiles(fs); input.value='' });
+  }
+  setupDrop(dropSprite,fileSpriteEl,fs=>{ if(fs[0]) useSpriteFromFile(fs[0]) });
+  setupDrop(dropRef,fileRefEl, async fs=>{ for(const f of fs){ await addRefImage(f) } });
+  clearRefsBtn.onclick=()=>{ refImgs.length=0; refListEl.innerHTML=''; toast('已清空参考图') };
+
+  async function addRefImage(file){
+    const url=URL.createObjectURL(file);
+    const img=await createImage(url);
+    const c=document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
+    c.getContext('2d').drawImage(img,0,0);
+    const dataURL=c.toDataURL('image/png');
+    refImgs.push({dataURL,w:img.naturalWidth,h:img.naturalHeight});
+    const im=new Image(); im.src=dataURL; refListEl.appendChild(im);
+    URL.revokeObjectURL(url);
+  }
+
+  async function useSpriteFromFile(file){
+    const url=URL.createObjectURL(file);
+    await useSpriteUrl(url,"本地上传："+(file.name||'sprite.png'));
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }
+
+  // Precompute rects from template (normalized 0..1)
+  let templateRects=null;
+  (async ()=>{
+    templateRects = await calcRectsFromTemplate(TEMPLATE_DATA);
+    log("✅ 已从模板识别灰区九格坐标");
+  })();
+
+  oneKeyBtn.onclick = async function(){
+    try{
+      dlGifEl.style.display='none'; gifPrevEl.style.display='none'; dlFramesEl.style.display='none';
+      thumbsEl.innerHTML=''; galleryEl.innerHTML='';
+      setBusy(true,'请求模型生成…');
+
+      const key=(userKeyEl.value||'').trim(); if(!key) throw Error('请先填写 Key');
+      let userPrompt=(promptEl.value||'').trim(); if(!userPrompt) throw Error('请先输入提示词');
+
+      let promptApi=userPrompt;
+      if(!/[。.!?？]$/.test(promptApi)) promptApi+='。';
+      promptApi += "根据以上用户输入的提示词和参考图片，使用最后一张图片作为模板生成9帧动画图片，在灰色区域内放置生成的图片，动作应流畅逼真，最后一帧应流畅地循环回到第一帧。不要改变模板的白色边缘与网格线位置，九张子图风格统一。在所有帧中保持一致的主体核心面部特征和身份。人物或主体应在每一帧之间清晰可辨。避免扭曲面部或添加新特征。";
+
+      const imageUrl = await callGeminiImage(key, promptApi, refImgs);
+      if(!imageUrl) throw Error('模型未返回图片');
+
+      await useSpriteUrl(imageUrl,"模型返回图");
+      setBusy(false,'生成完毕，已按模板裁 9 张，可合成 GIF');
+      await buildGif();
+    }catch(err){
+      setBusy(false,'失败'); log("❌ "+(err&&err.message||err)); toast(err&&err.message||String(err));
+    }
+  };
+
+  async function callGeminiImage(key, promptApi, refs){
+    const content=[{type:'text', text:promptApi}];
+    for(const r of refs){ content.push({type:'image_url', image_url:{url:r.dataURL}}) }
+    // Always append the provided template as LAST image
+    content.push({type:'image_url', image_url:{url:TEMPLATE_DATA}});
+    log("ℹ️ 已附加『模板九宫格』作为最后一张参考图");
+    const body = { model: MODEL, messages: [{ role: 'user', content }] };
+    const headers = { 'Authorization':'Bearer '+key, 'Content-Type':'application/json' };
+    const res = await fetch(ENDPOINT, { method:'POST', headers, body: JSON.stringify(body) });
+    const text = await res.text(); let json=null; try{ json=JSON.parse(text) }catch(_){}
+    if(!res.ok){ log("HTTP "+res.status); log(text); throw Error((json&&json.error&&json.error.message)||'Provider returned error') }
+    const msg=(json && json.choices && json.choices[0] && json.choices[0].message) || {};
+    let images = (msg && msg.images && Array.isArray(msg.images)) ? msg.images.slice() : [];
+    if(images.length===0){
+      const c = (msg.content||'')+'';
+      const datas = c.match(/data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=\-_]+/g) || [];
+      for(const d of datas) images.push({type:'image_url', image_url:{url:d}});
+      if(images.length===0){
+        const found=[]; const re=/(https?:\/\/[^\s\)\]\}<\'"]+)/ig; let m; while((m=re.exec(c))) found.push(m[1]);
+        for(const u of Array.from(new Set(found))) images.push({type:'image_url', image_url:{url:u}});
+      }
+    }
+    const urls = images.map(im => im && im.image_url && im.image_url.url).filter(Boolean);
+    if(urls.length){ addGallery(urls[0]); return urls[0] }
+    return '';
+  }
+
+  // Crop using template rects
+  async function useSpriteUrl(url, title){
+    addGallery(url, title||'');
+    log("⏬ 载入九宫格结果图…");
+    const img=await loadImageSmart(url);
+    const side = Math.min(img.width, img.height)|0;
+    const sx=((img.width-side)/2)|0, sy=((img.height-side)/2)|0;
+    const base=document.createElement('canvas'); base.width=base.height=side;
+    const b=base.getContext('2d'); b.drawImage(img, sx, sy, side, side, 0, 0, side, side);
+
+    if(!templateRects || templateRects.length!==9) throw Error('模板坐标未准备好');
+    thumbsEl.innerHTML=''; const frames=[];
+    for(let i=0;i<9;i++){
+      const r=templateRects[i];
+      const x=Math.round(r.x*side), y=Math.round(r.y*side), w=Math.round(r.w*side), h=Math.round(r.h*side);
+      const can=document.createElement('canvas'); can.width=w; can.height=h;
+      can.getContext('2d').drawImage(base,x,y,w,h,0,0,w,h);
+      frames.push(can); thumbsEl.appendChild(can);
+    }
+    window.__frames__=frames;
+    log("✅ 已按模板灰区裁切 9 张序列帧");
+  }
+
+  // Detect 4 vertical and 4 horizontal white bands; build 3x3 grey cell rects.
+  async function calcRectsFromTemplate(dataURL){
+    const img=await createImage(dataURL);
+    const W=img.naturalWidth, H=img.naturalHeight;
+    const c=document.createElement('canvas'); c.width=W; c.height=H;
+    const ctx=c.getContext('2d'); ctx.drawImage(img,0,0);
+    const U=ctx.getImageData(0,0,W,H).data;
+
+    function isWhite(r,g,b){ return r>245 && g>245 && b>245 && Math.abs(r-g)<10 && Math.abs(r-b)<10 && Math.abs(g-b)<10 }
+
+    const colRatio=new Float32Array(W);
+    for(let x=0;x<W;x++){
+      let w=0; for(let y=0;y<H;y++){ const i=(y*W+x)*4; if(isWhite(U[i],U[i+1],U[i+2])) w++; }
+      colRatio[x]=w/H;
+    }
+    const rowRatio=new Float32Array(H);
+    for(let y=0;y<H;y++){
+      let w=0; for(let x=0;x<W;x++){ const i=(y*W+x)*4; if(isWhite(U[i],U[i+1],U[i+2])) w++; }
+      rowRatio[y]=w/W;
+    }
+
+    function bandsFromRatio(ratio, thr){
+      const bands=[]; let s=-1;
+      for(let i=0;i<ratio.length;i++){
+        if(ratio[i]>thr){ if(s<0) s=i; }
+        else { if(s>=0){ bands.push({start:s, end:i-1}); s=-1; } }
+      }
+      if(s>=0) bands.push({start:s,end:ratio.length-1});
+      // merge close bands
+      const merged=[];
+      for(const b of bands){
+        if(!merged.length || b.start - merged[merged.length-1].end > 2) merged.push({start:b.start,end:b.end});
+        else merged[merged.length-1].end = b.end;
+      }
+      return merged.map(b=>({start:b.start,end:b.end,len:b.end-b.start+1,center:(b.start+b.end)/2}));
+    }
+
+    let vBands=bandsFromRatio(colRatio,0.98);
+    let hBands=bandsFromRatio(rowRatio,0.98);
+    if(vBands.length<4 || hBands.length<4) throw Error('模板识别失败：竖/横白边不足');
+
+    function pickFour(bands, total){
+      // pick left/right as extreme, others near 1/3 & 2/3
+      bands.sort((a,b)=>a.center-b.center);
+      const left=bands[0], right=bands[bands.length-1];
+      const rest=bands.slice(1,-1);
+      const t1=total/3, t2=2*total/3;
+      let best1=rest[0], best2=rest[0], d1=1e9, d2=1e9;
+      for(const b of rest){
+        const d_1=Math.abs(b.center - t1);
+        const d_2=Math.abs(b.center - t2);
+        if(d_1<d1){ d1=d_1; best1=b; }
+        if(d_2<d2){ d2=d_2; best2=b; }
+      }
+      const res=[left, best1, best2, right].sort((a,b)=>a.center-b.center);
+      return res;
+    }
+
+    vBands = pickFour(vBands, W);
+    hBands = pickFour(hBands, H);
+
+    const rects=[];
+    for(let ry=0; ry<3; ry++){
+      for(let rx=0; rx<3; rx++){
+        const x0=vBands[rx].end+1;
+        const x1=vBands[rx+1].start-1;
+        const y0=hBands[ry].end+1;
+        const y1=hBands[ry+1].start-1;
+        const w=x1-x0+1, h=y1-y0+1;
+        rects.push({ x:x0/W, y:y0/H, w:w/W, h:h/H });
+      }
+    }
+    return rects;
+  }
+
+  async function buildGif(){
+    try{
+      if(!window.gifenc) throw Error('GIF 编码器未就绪');
+      const { GIFEncoder, quantize, applyPalette } = window.gifenc;
+      const frames=window.__frames__||[]; if(frames.length!==9) throw Error('未检测到 9 张帧');
+
+      const delay=Math.max(10,parseInt(delayEl.value||120,10));
+      const outW=parseInt(outWEl.value||0,10)||0;
+      const loopMode=loopModeEl.value;
+
+      const useFrames = outW>0 ? frames.map(f=>scaleCanvas(f,outW)) : frames.slice();
+      const seq=(loopMode==='pingpong') ? useFrames.concat(useFrames.slice(1,-1).reverse()) : useFrames;
+
+      const w=seq[0].width, h=seq[0].height;
+
+      // global palette from all frames (sample step 4 for quality)
+      const sample=[]; const step=4;
+      for(const cvs of seq){
+        const u8=cvs.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
+        for(let i=0;i<u8.length;i+=4*step) sample.push(u8[i],u8[i+1],u8[i+2],u8[i+3]);
+      }
+      const pal=quantize(new Uint8Array(sample),256,1);
+      const enc = GIFEncoder();
+      enc.start(w,h,pal);
+      for(const cvs of seq){
+        const u8=cvs.getContext('2d',{willReadFrequently:true}).getImageData(0,0,w,h).data;
+        const idx=applyPalette(new Uint8Array(u8.buffer), pal);
+        enc.addFrame(idx, delay);
+      }
+      enc.finish();
+      const bytes = enc.bytes();
+      const blob=new Blob([bytes],{type:'image/gif'});
+      const url=URL.createObjectURL(blob);
+
+      dlGifEl.href=url; dlGifEl.style.display='inline-flex';
+      gifPrevEl.src=url; gifPrevEl.style.display='block';
+      log("🎞️ GIF 大小约 "+human(bytes.length));
+      try{ await dumpFramesJSON(seq) }catch(_){}
+    }catch(err){
+      log("❌ GIF 合成失败："+(err&&err.message||err)); toast(err&&err.message||String(err));
+    }
+  }
+
+  // helpers
+  function scaleCanvas(src,targetW){ const r=targetW/src.width; const c=document.createElement('canvas'); c.width=targetW|0; c.height=Math.round(src.height*r); c.getContext('2d').drawImage(src,0,0,c.width,c.height); return c }
+  async function loadImageSmart(url){ try{ const res=await fetch(url,{mode:'cors',credentials:'omit',cache:'no-store'}); if(!res.ok) throw Error('HTTP '+res.status); const blob=await res.blob(); const u=URL.createObjectURL(blob); const img=await createImage(u); setTimeout(()=>URL.revokeObjectURL(u),1500); return img; } catch(_){ return await createImage(url) } }
+  function createImage(src){ return new Promise((resolve,reject)=>{ const im=new Image(); im.crossOrigin='anonymous'; im.onload=()=>resolve(im); im.onerror=()=>reject(Error('图片加载失败')); im.src=src }) }
+  function addGallery(url,title){ const d=document.createElement('div'); d.className='shot'; const img=new Image(); img.src=url; d.appendChild(img); const bar=document.createElement('div'); bar.className='bar'; const a=document.createElement('a'); a.className='btn'; a.textContent='⬇️ 下载原图'; a.href=url; a.download='sprite.png'; const span=document.createElement('span'); span.className='small muted'; span.textContent=title||'生成结果'; bar.appendChild(a); bar.appendChild(span); d.appendChild(bar); galleryEl.appendChild(d) }
+  function human(n){ const u=['B','KB','MB','GB']; let i=0; while(n>1024&&i<u.length-1){ n/=1024; i++ } return n.toFixed(1)+' '+u[i] }
+  async function dumpFramesJSON(canvases){ const enc=new TextEncoder(); const data=[]; for(let i=0;i<canvases.length;i++){ data.push({ name:('frame_'+(i+1)).padStart(7,'0')+'.png', dataURL:canvases[i].toDataURL('image/png') }) } const blob=new Blob([enc.encode(JSON.stringify(data,null,2))],{type:'application/json'}); const url=URL.createObjectURL(blob); dlFramesEl.href=url; dlFramesEl.style.display='inline-flex' }
+
+  window.buildGif=buildGif;
+})();
+</script>
+</body>
+</html>
