@@ -445,16 +445,29 @@
     const urls = images.map(im => im && im.image_url && im.image_url.url).filter(Boolean);
 if (urls.length) {
   const originalUrl = urls[0];
-  // 使用一个公共代理来“清洗”图片，为其添加CORS头
-const myProxyBase = 'https://gordensun.com/proxy'; 
-const proxyUrl = `${myProxyBase}?url=${encodeURIComponent(originalUrl)}`;  
-  log(`- 原始URL: ${originalUrl}`);
-  log(`- 通过代理加载以避免画布污染: ${proxyUrl}`);
-
-  // 在相册中仍然显示和提供原始URL供用户下载
-  addGallery(originalUrl, '模型返回图'); 
   
-  // 将处理过的、带有CORS头的代理URL传递给后续的canvas操作
+  // =================================================================
+  //  ↓↓↓  将这部分代码完整替换掉您原来的 proxyUrl 生成逻辑  ↓↓↓
+  // =================================================================
+
+  const myProxyBase = 'https://gordensun.com/proxy/'; // <-- 代理基础路径，注意末尾的斜杠 /
+
+  // 1. 我们在前端拆分 URL
+  const urlObject = new URL(originalUrl);
+  const remoteHost = urlObject.hostname; // e.g., "image.banana.rest"
+  const remotePath = urlObject.pathname; // e.g., "/images/2025/..."
+
+  // 2. 构造一个新的、Nginx 友好的代理 URL
+  // 我们把远程路径作为代理 URL 的一部分，远程域名作为查询参数
+  // 结果: https://gordensun.com/proxy/images/2025/...?remote_host=image.banana.rest
+  const proxyUrl = `${myProxyBase}${remotePath.substring(1)}?remote_host=${remoteHost}`;
+
+  // =================================================================
+
+  log(`- 原始URL: ${originalUrl}`);
+  log(`- 通过代理加载 (新结构): ${proxyUrl}`);
+
+  addGallery(originalUrl, '模型返回图'); 
   return proxyUrl; 
 }
 return '';
