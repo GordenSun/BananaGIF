@@ -443,8 +443,21 @@
       }
     }
     const urls = images.map(im => im && im.image_url && im.image_url.url).filter(Boolean);
-    if(urls.length){ addGallery(urls[0]); return urls[0] }
-    return '';
+if (urls.length) {
+  const originalUrl = urls[0];
+  // 使用一个公共代理来“清洗”图片，为其添加CORS头
+const myProxyBase = 'https://banana-gif.love060701.workers.dev'; 
+const proxyUrl = `${myProxyBase}?url=${encodeURIComponent(originalUrl)}`;  
+  log(`- 原始URL: ${originalUrl}`);
+  log(`- 通过代理加载以避免画布污染: ${proxyUrl}`);
+
+  // 在相册中仍然显示和提供原始URL供用户下载
+  addGallery(originalUrl, '模型返回图'); 
+  
+  // 将处理过的、带有CORS头的代理URL传递给后续的canvas操作
+  return proxyUrl; 
+}
+return '';
   }
 
   // Crop using template rects
